@@ -30,18 +30,18 @@ func TestStats(t *testing.T) {
 	}
 }
 
-func getter(key interface{}) (interface{}, error) {
+func getter[K comparable](key K) (K, error) {
 	return key, nil
 }
 
 func TestCacheStats(t *testing.T) {
 	var cases = []struct {
-		builder func() Cache
+		builder func() Cache[int, int]
 		rate    float64
 	}{
 		{
-			builder: func() Cache {
-				cc := New(32).Simple().Build()
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).Simple().Build()
 				cc.Set(0, 0)
 				cc.Get(0)
 				cc.Get(1)
@@ -50,8 +50,8 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).LRU().Build()
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).LRU().Build()
 				cc.Set(0, 0)
 				cc.Get(0)
 				cc.Get(1)
@@ -60,8 +60,8 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).LFU().Build()
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).LFU().Build()
 				cc.Set(0, 0)
 				cc.Get(0)
 				cc.Get(1)
@@ -70,8 +70,8 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).ARC().Build()
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).ARC().Build()
 				cc.Set(0, 0)
 				cc.Get(0)
 				cc.Get(1)
@@ -80,10 +80,10 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).
 					Simple().
-					LoaderFunc(getter).
+					LoaderFunc(getter[int]).
 					Build()
 				cc.Set(0, 0)
 				cc.Get(0)
@@ -93,10 +93,10 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).
 					LRU().
-					LoaderFunc(getter).
+					LoaderFunc(getter[int]).
 					Build()
 				cc.Set(0, 0)
 				cc.Get(0)
@@ -106,10 +106,10 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).
 					LFU().
-					LoaderFunc(getter).
+					LoaderFunc(getter[int]).
 					Build()
 				cc.Set(0, 0)
 				cc.Get(0)
@@ -119,10 +119,10 @@ func TestCacheStats(t *testing.T) {
 			rate: 0.5,
 		},
 		{
-			builder: func() Cache {
-				cc := New(32).
+			builder: func() Cache[int, int] {
+				cc := New[int, int](32).
 					ARC().
-					LoaderFunc(getter).
+					LoaderFunc(getter[int]).
 					Build()
 				cc.Set(0, 0)
 				cc.Get(0)

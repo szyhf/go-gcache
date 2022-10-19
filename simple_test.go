@@ -8,7 +8,7 @@ import (
 
 func TestSimpleGet(t *testing.T) {
 	size := 1000
-	gc := buildTestCache(t, TYPE_SIMPLE, size)
+	gc := buildTestCache[string, string](t, TYPE_SIMPLE, size)
 	testSetCache(t, gc, size)
 	testGetCache(t, gc, size)
 }

@@ -26,9 +26,9 @@ import (
 )
 
 func TestDo(t *testing.T) {
-	var g Group
-	g.cache = New(32).Build()
-	v, _, err := g.Do("key", func() (interface{}, error) {
+	var g Group[string, string]
+	g.cache = New[string, string](32).Build()
+	v, _, err := g.Do("key", func() (string, error) {
 		return "bar", nil
 	}, true)
 	if got, want := fmt.Sprintf("%v (%T)", v, v), "bar (string)"; got != want {
@@ -40,10 +40,10 @@ func TestDo(t *testing.T) {
 }
 
 func TestDoErr(t *testing.T) {
-	var g Group
-	g.cache = New(32).Build()
+	var g Group[string, any]
+	g.cache = New[string, any](32).Build()
 	someErr := errors.New("Some error")
-	v, _, err := g.Do("key", func() (interface{}, error) {
+	v, _, err := g.Do("key", func() (any, error) {
 		return nil, someErr
 	}, true)
 	if err != someErr {
@@ -55,11 +55,11 @@ func TestDoErr(t *testing.T) {
 }
 
 func TestDoDupSuppress(t *testing.T) {
-	var g Group
-	g.cache = New(32).Build()
+	var g Group[string, string]
+	g.cache = New[string, string](32).Build()
 	c := make(chan string)
 	var calls int32
-	fn := func() (interface{}, error) {
+	fn := func() (string, error) {
 		atomic.AddInt32(&calls, 1)
 		return <-c, nil
 	}
@@ -73,7 +73,7 @@ func TestDoDupSuppress(t *testing.T) {
 			if err != nil {
 				t.Errorf("Do error: %v", err)
 			}
-			if v.(string) != "bar" {
+			if v != "bar" {
 				t.Errorf("got %q; want %q", v, "bar")
 			}
 			wg.Done()

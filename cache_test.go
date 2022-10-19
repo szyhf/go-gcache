@@ -11,21 +11,21 @@ import (
 
 func TestLoaderFunc(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	var testCaches = []*CacheBuilder[int, int64]{
+		New[int, int64](size).Simple(),
+		New[int, int64](size).LRU(),
+		New[int, int64](size).LFU(),
+		New[int, int64](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderFunc(func(key interface{}) (interface{}, error) {
+			LoaderFunc(func(key int) (int64, error) {
 				time.Sleep(10 * time.Millisecond)
 				return atomic.AddInt64(&testCounter, 1), nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key int, value int64) {
 				panic(key)
 			}).Build()
 
@@ -50,20 +50,20 @@ func TestLoaderFunc(t *testing.T) {
 
 func TestLoaderExpireFuncWithoutExpire(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	var testCaches = []*CacheBuilder[int, int64]{
+		New[int, int64](size).Simple(),
+		New[int, int64](size).LRU(),
+		New[int, int64](size).LFU(),
+		New[int, int64](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
+			LoaderExpireFunc(func(key int) (int64, *time.Duration, error) {
 				return atomic.AddInt64(&testCounter, 1), nil, nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key int, value int64) {
 				panic(key)
 			}).Build()
 
@@ -89,18 +89,18 @@ func TestLoaderExpireFuncWithoutExpire(t *testing.T) {
 
 func TestLoaderExpireFuncWithExpire(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	var testCaches = []*CacheBuilder[int, int64]{
+		New[int, int64](size).Simple(),
+		New[int, int64](size).LRU(),
+		New[int, int64](size).LFU(),
+		New[int, int64](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		expire := 200 * time.Millisecond
 		cache := builder.
-			LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
+			LoaderExpireFunc(func(key int) (int64, *time.Duration, error) {
 				return atomic.AddInt64(&testCounter, 1), &expire, nil
 			}).
 			Build()
@@ -140,23 +140,23 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 	size := 7
 	tests := []struct {
 		name         string
-		cacheBuilder *CacheBuilder
+		cacheBuilder *CacheBuilder[int, int64]
 	}{
 		{
 			name:         "simple",
-			cacheBuilder: New(size).Simple(),
+			cacheBuilder: New[int, int64](size).Simple(),
 		},
 		{
 			name:         "lru",
-			cacheBuilder: New(size).LRU(),
+			cacheBuilder: New[int, int64](size).LRU(),
 		},
 		{
 			name:         "lfu",
-			cacheBuilder: New(size).LFU(),
+			cacheBuilder: New[int, int64](size).LFU(),
 		},
 		{
 			name:         "arc",
-			cacheBuilder: New(size).ARC(),
+			cacheBuilder: New[int, int64](size).ARC(),
 		},
 	}
 
@@ -164,13 +164,13 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 		var purgeCounter, evictCounter, loaderCounter int64
 		counter := 1000
 		cache := test.cacheBuilder.
-			LoaderFunc(func(key interface{}) (interface{}, error) {
+			LoaderFunc(func(key int) (int64, error) {
 				return atomic.AddInt64(&loaderCounter, 1), nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key int, value int64) {
 				atomic.AddInt64(&evictCounter, 1)
 			}).
-			PurgeVisitorFunc(func(k, v interface{}) {
+			PurgeVisitorFunc(func(k int, v int64) {
 				atomic.AddInt64(&purgeCounter, 1)
 			}).
 			Build()
@@ -218,12 +218,12 @@ func TestDeserializeFunc(t *testing.T) {
 	for _, cs := range cases {
 		key1, value1 := "key1", "value1"
 		key2, value2 := "key2", "value2"
-		cc := New(32).
+		cc := New[string, any](32).
 			EvictType(cs.tp).
-			LoaderFunc(func(k interface{}) (interface{}, error) {
+			LoaderFunc(func(k string) (any, error) {
 				return value1, nil
 			}).
-			DeserializeFunc(func(k, v interface{}) (interface{}, error) {
+			DeserializeFunc(func(k string, v any) (any, error) {
 				dec := gob.NewDecoder(bytes.NewBuffer(v.([]byte)))
 				var str string
 				err := dec.Decode(&str)
@@ -232,7 +232,7 @@ func TestDeserializeFunc(t *testing.T) {
 				}
 				return str, nil
 			}).
-			SerializeFunc(func(k, v interface{}) (interface{}, error) {
+			SerializeFunc(func(k string, v any) (any, error) {
 				buf := new(bytes.Buffer)
 				enc := gob.NewEncoder(buf)
 				err := enc.Encode(v)

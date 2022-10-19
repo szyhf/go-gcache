@@ -16,93 +16,86 @@ const (
 
 var KeyNotFoundError = errors.New("Key not found.")
 
-type Cache interface {
+type Cache[K comparable, V any] interface {
 	// Set inserts or updates the specified key-value pair.
-	Set(key, value interface{}) error
+	Set(key K, value V) error
 	// SetWithExpire inserts or updates the specified key-value pair with an expiration time.
-	SetWithExpire(key, value interface{}, expiration time.Duration) error
+	SetWithExpire(key K, value V, expiration time.Duration) error
 	// Get returns the value for the specified key if it is present in the cache.
 	// If the key is not present in the cache and the cache has LoaderFunc,
 	// invoke the `LoaderFunc` function and inserts the key-value pair in the cache.
 	// If the key is not present in the cache and the cache does not have a LoaderFunc,
 	// return KeyNotFoundError.
-	Get(key interface{}) (interface{}, error)
+	Get(key K) (V, error)
 	// GetIFPresent returns the value for the specified key if it is present in the cache.
 	// Return KeyNotFoundError if the key is not present.
-	GetIFPresent(key interface{}) (interface{}, error)
+	GetIFPresent(key K) (V, error)
 	// GetAll returns a map containing all key-value pairs in the cache.
-	GetALL(checkExpired bool) map[interface{}]interface{}
-	get(key interface{}, onLoad bool) (interface{}, error)
+	GetALL(checkExpired bool) map[K]V
+	get(key K, onLoad bool) (V, error)
 	// Remove removes the specified key from the cache if the key is present.
 	// Returns true if the key was present and the key has been deleted.
-	Remove(key interface{}) bool
+	Remove(key K) bool
 	// Purge removes all key-value pairs from the cache.
 	Purge()
 	// Keys returns a slice containing all keys in the cache.
-	Keys(checkExpired bool) []interface{}
+	Keys(checkExpired bool) []K
 	// Len returns the number of items in the cache.
 	Len(checkExpired bool) int
 	// Has returns true if the key exists in the cache.
-	Has(key interface{}) bool
+	Has(key K) bool
 
 	statsAccessor
 }
 
-type baseCache struct {
+type baseCache[K comparable, V any] struct {
 	clock            Clock
 	size             int
-	loaderExpireFunc LoaderExpireFunc
-	evictedFunc      EvictedFunc
-	purgeVisitorFunc PurgeVisitorFunc
-	addedFunc        AddedFunc
-	deserializeFunc  DeserializeFunc
-	serializeFunc    SerializeFunc
+	loaderExpireFunc func(K) (V, *time.Duration, error)
+	evictedFunc      func(K, V)
+	purgeVisitorFunc func(K, V)
+	addedFunc        func(K, V)
+	serializeFunc    func(K, V) (V, error)
+	deserializeFunc  func(K, V) (V, error)
 	expiration       *time.Duration
 	mu               sync.RWMutex
-	loadGroup        Group
+	loadGroup        Group[K, V]
 	*stats
+
+	// 用于快速返回泛型nil
+	nilV V
 }
 
-type (
-	LoaderFunc       func(interface{}) (interface{}, error)
-	LoaderExpireFunc func(interface{}) (interface{}, *time.Duration, error)
-	EvictedFunc      func(interface{}, interface{})
-	PurgeVisitorFunc func(interface{}, interface{})
-	AddedFunc        func(interface{}, interface{})
-	DeserializeFunc  func(interface{}, interface{}) (interface{}, error)
-	SerializeFunc    func(interface{}, interface{}) (interface{}, error)
-)
-
-type CacheBuilder struct {
+type CacheBuilder[K comparable, V any] struct {
 	clock            Clock
 	tp               string
 	size             int
-	loaderExpireFunc LoaderExpireFunc
-	evictedFunc      EvictedFunc
-	purgeVisitorFunc PurgeVisitorFunc
-	addedFunc        AddedFunc
+	loaderExpireFunc func(K) (V, *time.Duration, error)
+	evictedFunc      func(K, V)
+	purgeVisitorFunc func(K, V)
+	addedFunc        func(K, V)
+	serializeFunc    func(K, V) (V, error)
+	deserializeFunc  func(K, V) (V, error)
 	expiration       *time.Duration
-	deserializeFunc  DeserializeFunc
-	serializeFunc    SerializeFunc
 }
 
-func New(size int) *CacheBuilder {
-	return &CacheBuilder{
+func New[K comparable, V any](size int) *CacheBuilder[K, V] {
+	return &CacheBuilder[K, V]{
 		clock: NewRealClock(),
 		tp:    TYPE_SIMPLE,
 		size:  size,
 	}
 }
 
-func (cb *CacheBuilder) Clock(clock Clock) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) Clock(clock Clock) *CacheBuilder[K, V] {
 	cb.clock = clock
 	return cb
 }
 
 // Set a loader function.
 // loaderFunc: create a new value with this function if cached value is expired.
-func (cb *CacheBuilder) LoaderFunc(loaderFunc LoaderFunc) *CacheBuilder {
-	cb.loaderExpireFunc = func(k interface{}) (interface{}, *time.Duration, error) {
+func (cb *CacheBuilder[K, V]) LoaderFunc(loaderFunc func(K) (V, error)) *CacheBuilder[K, V] {
+	cb.loaderExpireFunc = func(k K) (V, *time.Duration, error) {
 		v, err := loaderFunc(k)
 		return v, nil, err
 	}
@@ -112,63 +105,63 @@ func (cb *CacheBuilder) LoaderFunc(loaderFunc LoaderFunc) *CacheBuilder {
 // Set a loader function with expiration.
 // loaderExpireFunc: create a new value with this function if cached value is expired.
 // If nil returned instead of time.Duration from loaderExpireFunc than value will never expire.
-func (cb *CacheBuilder) LoaderExpireFunc(loaderExpireFunc LoaderExpireFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) LoaderExpireFunc(loaderExpireFunc func(K) (V, *time.Duration, error)) *CacheBuilder[K, V] {
 	cb.loaderExpireFunc = loaderExpireFunc
 	return cb
 }
 
-func (cb *CacheBuilder) EvictType(tp string) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) EvictType(tp string) *CacheBuilder[K, V] {
 	cb.tp = tp
 	return cb
 }
 
-func (cb *CacheBuilder) Simple() *CacheBuilder {
+func (cb *CacheBuilder[K, V]) Simple() *CacheBuilder[K, V] {
 	return cb.EvictType(TYPE_SIMPLE)
 }
 
-func (cb *CacheBuilder) LRU() *CacheBuilder {
+func (cb *CacheBuilder[K, V]) LRU() *CacheBuilder[K, V] {
 	return cb.EvictType(TYPE_LRU)
 }
 
-func (cb *CacheBuilder) LFU() *CacheBuilder {
+func (cb *CacheBuilder[K, V]) LFU() *CacheBuilder[K, V] {
 	return cb.EvictType(TYPE_LFU)
 }
 
-func (cb *CacheBuilder) ARC() *CacheBuilder {
+func (cb *CacheBuilder[K, V]) ARC() *CacheBuilder[K, V] {
 	return cb.EvictType(TYPE_ARC)
 }
 
-func (cb *CacheBuilder) EvictedFunc(evictedFunc EvictedFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) EvictedFunc(evictedFunc func(K, V)) *CacheBuilder[K, V] {
 	cb.evictedFunc = evictedFunc
 	return cb
 }
 
-func (cb *CacheBuilder) PurgeVisitorFunc(purgeVisitorFunc PurgeVisitorFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) PurgeVisitorFunc(purgeVisitorFunc func(K, V)) *CacheBuilder[K, V] {
 	cb.purgeVisitorFunc = purgeVisitorFunc
 	return cb
 }
 
-func (cb *CacheBuilder) AddedFunc(addedFunc AddedFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) AddedFunc(addedFunc func(K, V)) *CacheBuilder[K, V] {
 	cb.addedFunc = addedFunc
 	return cb
 }
 
-func (cb *CacheBuilder) DeserializeFunc(deserializeFunc DeserializeFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) DeserializeFunc(deserializeFunc func(K, V) (V, error)) *CacheBuilder[K, V] {
 	cb.deserializeFunc = deserializeFunc
 	return cb
 }
 
-func (cb *CacheBuilder) SerializeFunc(serializeFunc SerializeFunc) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) SerializeFunc(serializeFunc func(K, V) (V, error)) *CacheBuilder[K, V] {
 	cb.serializeFunc = serializeFunc
 	return cb
 }
 
-func (cb *CacheBuilder) Expiration(expiration time.Duration) *CacheBuilder {
+func (cb *CacheBuilder[K, V]) Expiration(expiration time.Duration) *CacheBuilder[K, V] {
 	cb.expiration = &expiration
 	return cb
 }
 
-func (cb *CacheBuilder) Build() Cache {
+func (cb *CacheBuilder[K, V]) Build() Cache[K, V] {
 	if cb.size <= 0 && cb.tp != TYPE_SIMPLE {
 		panic("gcache: Cache size <= 0")
 	}
@@ -176,7 +169,7 @@ func (cb *CacheBuilder) Build() Cache {
 	return cb.build()
 }
 
-func (cb *CacheBuilder) build() Cache {
+func (cb *CacheBuilder[K, V]) build() Cache[K, V] {
 	switch cb.tp {
 	case TYPE_SIMPLE:
 		return newSimpleCache(cb)
@@ -191,7 +184,7 @@ func (cb *CacheBuilder) build() Cache {
 	}
 }
 
-func buildCache(c *baseCache, cb *CacheBuilder) {
+func buildCache[K comparable, V any](c *baseCache[K, V], cb *CacheBuilder[K, V]) {
 	c.clock = cb.clock
 	c.size = cb.size
 	c.loaderExpireFunc = cb.loaderExpireFunc
@@ -205,8 +198,8 @@ func buildCache(c *baseCache, cb *CacheBuilder) {
 }
 
 // load a new value using by specified key.
-func (c *baseCache) load(key interface{}, cb func(interface{}, *time.Duration, error) (interface{}, error), isWait bool) (interface{}, bool, error) {
-	v, called, err := c.loadGroup.Do(key, func() (v interface{}, e error) {
+func (c *baseCache[K, V]) load(key K, cb func(V, *time.Duration, error) (V, error), isWait bool) (V, bool, error) {
+	v, called, err := c.loadGroup.Do(key, func() (v V, e error) {
 		defer func() {
 			if r := recover(); r != nil {
 				e = fmt.Errorf("Loader panics: %v", r)
@@ -215,7 +208,7 @@ func (c *baseCache) load(key interface{}, cb func(interface{}, *time.Duration, e
 		return cb(c.loaderExpireFunc(key))
 	}, isWait)
 	if err != nil {
-		return nil, called, err
+		return c.nilV, called, err
 	}
 	return v, called, nil
 }

@@ -22,25 +22,28 @@ limitations under the License.
 import "sync"
 
 // call is an in-flight or completed Do call
-type call struct {
+type call[V any] struct {
 	wg  sync.WaitGroup
-	val interface{}
+	val V
 	err error
 }
 
 // Group represents a class of work and forms a namespace in which
 // units of work can be executed with duplicate suppression.
-type Group struct {
-	cache Cache
-	mu    sync.Mutex            // protects m
-	m     map[interface{}]*call // lazily initialized
+type Group[K comparable, V any] struct {
+	cache Cache[K, V]
+	mu    sync.Mutex     // protects m
+	m     map[K]*call[V] // lazily initialized
+
+	// 用于快速返回泛型nil
+	nilV V
 }
 
 // Do executes and returns the results of the given function, making
 // sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.
-func (g *Group) Do(key interface{}, fn func() (interface{}, error), isWait bool) (interface{}, bool, error) {
+func (g *Group[K, V]) Do(key K, fn func() (V, error), isWait bool) (V, bool, error) {
 	g.mu.Lock()
 	v, err := g.cache.get(key, true)
 	if err == nil {
@@ -48,29 +51,29 @@ func (g *Group) Do(key interface{}, fn func() (interface{}, error), isWait bool)
 		return v, false, nil
 	}
 	if g.m == nil {
-		g.m = make(map[interface{}]*call)
+		g.m = make(map[K]*call[V])
 	}
 	if c, ok := g.m[key]; ok {
 		g.mu.Unlock()
 		if !isWait {
-			return nil, false, KeyNotFoundError
+			return g.nilV, false, KeyNotFoundError
 		}
 		c.wg.Wait()
 		return c.val, false, c.err
 	}
-	c := new(call)
+	c := new(call[V])
 	c.wg.Add(1)
 	g.m[key] = c
 	g.mu.Unlock()
 	if !isWait {
 		go g.call(c, key, fn)
-		return nil, false, KeyNotFoundError
+		return g.nilV, false, KeyNotFoundError
 	}
 	v, err = g.call(c, key, fn)
 	return v, true, err
 }
 
-func (g *Group) call(c *call, key interface{}, fn func() (interface{}, error)) (interface{}, error) {
+func (g *Group[K, V]) call(c *call[V], key K, fn func() (V, error)) (V, error) {
 	c.val, c.err = fn()
 	c.wg.Done()
 

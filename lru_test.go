@@ -8,7 +8,7 @@ import (
 
 func TestLRUGet(t *testing.T) {
 	size := 1000
-	gc := buildTestCache(t, TYPE_LRU, size)
+	gc := buildTestCache[string, string](t, TYPE_LRU, size)
 	testSetCache(t, gc, size)
 	testGetCache(t, gc, size)
 }

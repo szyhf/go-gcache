@@ -1,11 +1,15 @@
 # GCache
 
-![Test](https://github.com/bluele/gcache/workflows/Test/badge.svg)
-[![GoDoc](https://godoc.org/github.com/bluele/gcache?status.svg)](https://pkg.go.dev/github.com/bluele/gcache?tab=doc)
+![Test](https://github.com/szyhf/go-gcache/workflows/Test/badge.svg)
+[![GoDoc](https://godoc.org/github.com/szyhf/go-gcache?status.svg)](https://pkg.go.dev/github.com/szyhf/go-gcache?tab=doc)
 
 Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 
+It's the generic version of [bluele/gcache](https://github.com/bluele/gcache).
+
 ## Features
+
+* Supports generic.
 
 * Supports expirable Cache, LFU, LRU and ARC.
 
@@ -18,7 +22,7 @@ Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 ## Install
 
 ```
-$ go get github.com/bluele/gcache
+$ go get github.com/szyhf/go-gcache/v2
 ```
 
 ## Example
@@ -29,20 +33,21 @@ $ go get github.com/bluele/gcache
 package main
 
 import (
-  "github.com/bluele/gcache"
-  "fmt"
+	"fmt"
+
+	"github.com/szyhf/go-gcache/v2"
 )
 
 func main() {
-  gc := gcache.New(20).
-    LRU().
-    Build()
-  gc.Set("key", "ok")
-  value, err := gc.Get("key")
-  if err != nil {
-    panic(err)
-  }
-  fmt.Println("Get:", value)
+	gc := gcache.New[string, string](20).
+		LRU().
+		Build()
+	gc.Set("key", "ok")
+	value, err := gc.Get("key")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Get:", value)
 }
 ```
 
@@ -56,27 +61,28 @@ Get: ok
 package main
 
 import (
-  "github.com/bluele/gcache"
-  "fmt"
-  "time"
+	"fmt"
+	"time"
+
+	"github.com/szyhf/go-gcache/v2"
 )
 
 func main() {
-  gc := gcache.New(20).
-    LRU().
-    Build()
-  gc.SetWithExpire("key", "ok", time.Second*10)
-  value, _ := gc.Get("key")
-  fmt.Println("Get:", value)
+	gc := gcache.New[string, string](20).
+		LRU().
+		Build()
+	gc.SetWithExpire("key", "ok", time.Second*10)
+	value, _ := gc.Get("key")
+	fmt.Println("Get:", value)
 
-  // Wait for value to expire
-  time.Sleep(time.Second*10)
+	// Wait for value to expire
+	time.Sleep(time.Second * 10)
 
-  value, err := gc.Get("key")
-  if err != nil {
-    panic(err)
-  }
-  fmt.Println("Get:", value)
+	value, err := gc.Get("key")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Get:", value)
 }
 ```
 
@@ -93,22 +99,23 @@ panic: ErrKeyNotFound
 package main
 
 import (
-  "github.com/bluele/gcache"
-  "fmt"
+	"fmt"
+
+	gcache "github.com/szyhf/go-gcache/v2"
 )
 
 func main() {
-  gc := gcache.New(20).
-    LRU().
-    LoaderFunc(func(key interface{}) (interface{}, error) {
-      return "ok", nil
-    }).
-    Build()
-  value, err := gc.Get("key")
-  if err != nil {
-    panic(err)
-  }
-  fmt.Println("Get:", value)
+	gc := gcache.New[string, string](20).
+		LRU().
+		LoaderFunc(func(key string) (string, error) {
+			return "ok", nil
+		}).
+		Build()
+	value, err := gc.Get("key")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Get:", value)
 }
 ```
 
@@ -125,23 +132,23 @@ import (
   "fmt"
   "time"
 
-  "github.com/bluele/gcache"
+  "github.com/szyhf/go-gcache/v2"
 )
 
 func main() {
   var evictCounter, loaderCounter, purgeCounter int
   gc := gcache.New(20).
     LRU().
-    LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
+    LoaderExpireFunc(func(key any) (any, *time.Duration, error) {
       loaderCounter++
       expire := 1 * time.Second
       return "ok", &expire, nil
     }).
-    EvictedFunc(func(key, value interface{}) {
+    EvictedFunc(func(key, value any) {
       evictCounter++
       fmt.Println("evicted key:", key)
     }).
-    PurgeVisitorFunc(func(key, value interface{}) {
+    PurgeVisitorFunc(func(key, value any) {
       purgeCounter++
       fmt.Println("purged key:", key)
     }).
@@ -180,11 +187,11 @@ purged key: key
 
   ```go
   func main() {
-    // size: 10
-    gc := gcache.New(10).
-      LFU().
-      Build()
-    gc.Set("key", "value")
+  	// size: 10
+  	gc := gcache.New[string, string](10).
+  		LFU().
+  		Build()
+  	gc.Set("key", "value")
   }
   ```
 
@@ -195,7 +202,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).
+    gc := gcache.New[string, string](10).
       LRU().
       Build()
     gc.Set("key", "value")
@@ -211,7 +218,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).
+    gc := gcache.New[string, string](10).
       ARC().
       Build()
     gc.Set("key", "value")
@@ -224,13 +231,15 @@ purged key: key
 
   ```go
   func main() {
-    // size: 10
-    gc := gcache.New(10).Build()
-    gc.Set("key", "value")
-    v, err := gc.Get("key")
-    if err != nil {
-      panic(err)
-    }
+      // size: 10
+      gc := gcache.New[string, string](10).Build()
+      gc.Set("key", "value")
+      v, err := gc.Get("key")
+      if err != nil {
+      	panic(err)
+      }
+      // output: "value"
+      fmt.Println(v)
   }
   ```
 
@@ -240,15 +249,15 @@ If specified `LoaderFunc`, values are automatically loaded by the cache, and are
 
 ```go
 func main() {
-  gc := gcache.New(10).
-    LRU().
-    LoaderFunc(func(key interface{}) (interface{}, error) {
-      return "value", nil
-    }).
-    Build()
-  v, _ := gc.Get("key")
-  // output: "value"
-  fmt.Println(v)
+	gc := gcache.New[string, string](10).
+		LRU().
+		LoaderFunc(func(key string) (string, error) {
+			return "value", nil
+		}).
+		Build()
+	v, _ := gc.Get("key")
+	// output: "value"
+	fmt.Println(v)
 }
 ```
 
@@ -258,11 +267,14 @@ GCache coordinates cache fills such that only one load in one process of an enti
 
 ```go
 func main() {
-  // LRU cache, size: 10, expiration: after a hour
-  gc := gcache.New(10).
-    LRU().
-    Expiration(time.Hour).
-    Build()
+	// LRU cache, size: 10, expiration: after a hour
+	gc := gcache.New[int, int](10).
+		LRU().
+		Expiration(time.Hour).
+		Build()
+	for i := 0; i < 3; i++ {
+		gc.Set(i, i*i)
+	}
 }
 ```
 
@@ -274,14 +286,14 @@ Event handler for evict the entry.
 
 ```go
 func main() {
-  gc := gcache.New(2).
-    EvictedFunc(func(key, value interface{}) {
-      fmt.Println("evicted key:", key)
-    }).
-    Build()
-  for i := 0; i < 3; i++ {
-    gc.Set(i, i*i)
-  }
+	gc := gcache.New[int, int](2).
+		EvictedFunc(func(key, value int) {
+			fmt.Println("evicted key:", key)
+		}).
+		Build()
+	for i := 0; i < 3; i++ {
+		gc.Set(i, i*i)
+	}
 }
 ```
 
@@ -295,14 +307,14 @@ Event handler for add the entry.
 
 ```go
 func main() {
-  gc := gcache.New(2).
-    AddedFunc(func(key, value interface{}) {
-      fmt.Println("added key:", key)
-    }).
-    Build()
-  for i := 0; i < 3; i++ {
-    gc.Set(i, i*i)
-  }
+	gc := gcache.New[int, int](2).
+		AddedFunc(func(key, value int) {
+			fmt.Println("added key:", key)
+		}).
+		Build()
+	for i := 0; i < 3; i++ {
+		gc.Set(i, i*i)
+	}
 }
 ```
 
@@ -312,7 +324,7 @@ added key: 1
 added key: 2
 ```
 
-# Author
+# Origin Author
 
 **Jun Kimura**
 

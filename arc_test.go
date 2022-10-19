@@ -8,7 +8,7 @@ import (
 
 func TestARCGet(t *testing.T) {
 	size := 1000
-	gc := buildTestCache(t, TYPE_ARC, size)
+	gc := buildTestCache[string, string](t, TYPE_ARC, size)
 	testSetCache(t, gc, size)
 	testGetCache(t, gc, size)
 }
@@ -54,10 +54,10 @@ func TestARCEvictItem(t *testing.T) {
 func TestARCPurgeCache(t *testing.T) {
 	cacheSize := 10
 	purgeCount := 0
-	gc := New(cacheSize).
+	gc := New[string, string](cacheSize).
 		ARC().
 		LoaderFunc(loader).
-		PurgeVisitorFunc(func(k, v interface{}) {
+		PurgeVisitorFunc(func(k, v string) {
 			purgeCount++
 		}).
 		Build()
