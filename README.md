@@ -1,7 +1,7 @@
 # GCache
 
 ![Test](https://github.com/szyhf/go-gcache/workflows/Test/badge.svg)
-[![GoDoc](https://godoc.org/github.com/szyhf/go-gcache?status.svg)](https://pkg.go.dev/github.com/szyhf/go-gcache?tab=doc)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/szyhf/go-gcache/v2)](https://pkg.go.dev/github.com/szyhf/go-gcache/v2?tab=doc)
 
 Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 
