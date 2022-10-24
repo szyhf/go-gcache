@@ -51,12 +51,12 @@ type Cache[K comparable, V any] interface {
 type baseCache[K comparable, V any] struct {
 	clock            Clock
 	size             int
-	loaderExpireFunc func(K) (V, *time.Duration, error)
-	evictedFunc      func(K, V)
-	purgeVisitorFunc func(K, V)
-	addedFunc        func(K, V)
-	serializeFunc    func(K, V) (V, error)
-	deserializeFunc  func(K, V) (V, error)
+	loaderExpireFunc func(k K) (V, *time.Duration, error)
+	evictedFunc      func(k K, v V)
+	purgeVisitorFunc func(k K, v V)
+	addedFunc        func(k K, v V)
+	serializeFunc    func(k K, v V) (V, error)
+	deserializeFunc  func(k K, v V) (V, error)
 	expiration       *time.Duration
 	mu               sync.RWMutex
 	loadGroup        Group[K, V]
@@ -70,12 +70,12 @@ type CacheBuilder[K comparable, V any] struct {
 	clock            Clock
 	tp               string
 	size             int
-	loaderExpireFunc func(K) (V, *time.Duration, error)
-	evictedFunc      func(K, V)
-	purgeVisitorFunc func(K, V)
-	addedFunc        func(K, V)
-	serializeFunc    func(K, V) (V, error)
-	deserializeFunc  func(K, V) (V, error)
+	loaderExpireFunc func(k K) (V, *time.Duration, error)
+	evictedFunc      func(k K, v V)
+	purgeVisitorFunc func(k K, v V)
+	addedFunc        func(k K, v V)
+	serializeFunc    func(k K, v V) (V, error)
+	deserializeFunc  func(k K, v V) (V, error)
 	expiration       *time.Duration
 }
 
@@ -94,7 +94,7 @@ func (cb *CacheBuilder[K, V]) Clock(clock Clock) *CacheBuilder[K, V] {
 
 // Set a loader function.
 // loaderFunc: create a new value with this function if cached value is expired.
-func (cb *CacheBuilder[K, V]) LoaderFunc(loaderFunc func(K) (V, error)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) LoaderFunc(loaderFunc func(k K) (V, error)) *CacheBuilder[K, V] {
 	cb.loaderExpireFunc = func(k K) (V, *time.Duration, error) {
 		v, err := loaderFunc(k)
 		return v, nil, err
@@ -105,7 +105,7 @@ func (cb *CacheBuilder[K, V]) LoaderFunc(loaderFunc func(K) (V, error)) *CacheBu
 // Set a loader function with expiration.
 // loaderExpireFunc: create a new value with this function if cached value is expired.
 // If nil returned instead of time.Duration from loaderExpireFunc than value will never expire.
-func (cb *CacheBuilder[K, V]) LoaderExpireFunc(loaderExpireFunc func(K) (V, *time.Duration, error)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) LoaderExpireFunc(loaderExpireFunc func(k K) (V, *time.Duration, error)) *CacheBuilder[K, V] {
 	cb.loaderExpireFunc = loaderExpireFunc
 	return cb
 }
@@ -131,27 +131,27 @@ func (cb *CacheBuilder[K, V]) ARC() *CacheBuilder[K, V] {
 	return cb.EvictType(TYPE_ARC)
 }
 
-func (cb *CacheBuilder[K, V]) EvictedFunc(evictedFunc func(K, V)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) EvictedFunc(evictedFunc func(k K, v V)) *CacheBuilder[K, V] {
 	cb.evictedFunc = evictedFunc
 	return cb
 }
 
-func (cb *CacheBuilder[K, V]) PurgeVisitorFunc(purgeVisitorFunc func(K, V)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) PurgeVisitorFunc(purgeVisitorFunc func(k K, v V)) *CacheBuilder[K, V] {
 	cb.purgeVisitorFunc = purgeVisitorFunc
 	return cb
 }
 
-func (cb *CacheBuilder[K, V]) AddedFunc(addedFunc func(K, V)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) AddedFunc(addedFunc func(k K, v V)) *CacheBuilder[K, V] {
 	cb.addedFunc = addedFunc
 	return cb
 }
 
-func (cb *CacheBuilder[K, V]) DeserializeFunc(deserializeFunc func(K, V) (V, error)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) DeserializeFunc(deserializeFunc func(k K, v V) (V, error)) *CacheBuilder[K, V] {
 	cb.deserializeFunc = deserializeFunc
 	return cb
 }
 
-func (cb *CacheBuilder[K, V]) SerializeFunc(serializeFunc func(K, V) (V, error)) *CacheBuilder[K, V] {
+func (cb *CacheBuilder[K, V]) SerializeFunc(serializeFunc func(k K, v V) (V, error)) *CacheBuilder[K, V] {
 	cb.serializeFunc = serializeFunc
 	return cb
 }

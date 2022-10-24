@@ -132,7 +132,7 @@ func testExpiredItems(t *testing.T, evT string) {
 	}
 }
 
-func getSimpleEvictedFunc[K comparable, V any](t *testing.T) func(K, V) {
+func getSimpleEvictedFunc[K comparable, V any](t *testing.T) func(k K, v V) {
 	return func(key K, value V) {
 		t.Logf("Key=%v Value=%v will be evicted.\n", key, value)
 	}
@@ -145,7 +145,7 @@ func buildTestCache[K comparable, V any](t *testing.T, tp string, size int) Cach
 		Build()
 }
 
-func buildTestLoadingCache[K comparable, V any](t *testing.T, tp string, size int, loader func(K) (V, error)) Cache[K, V] {
+func buildTestLoadingCache[K comparable, V any](t *testing.T, tp string, size int, loader func(k K) (V, error)) Cache[K, V] {
 	return New[K, V](size).
 		EvictType(tp).
 		LoaderFunc(loader).
