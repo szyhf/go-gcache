@@ -152,6 +152,7 @@ func (c *LFUCache[K, V]) getValue(key K, onLoad bool) (V, error) {
 		if !item.IsExpired(nil) {
 			c.increment(item)
 			v := item.value
+			c.autoLease(item)
 			c.mu.Unlock()
 			if !onLoad {
 				c.stats.IncrHitCount()
@@ -359,6 +360,17 @@ func (c *LFUCache[K, V]) Purge() {
 	}
 
 	c.init()
+}
+
+func (c *LFUCache[K, V]) autoLease(item *lfuItem[K, V]) {
+	if item.expiration == nil {
+		return
+	}
+	if c.lease == nil {
+		return
+	}
+	t := item.clock.Now().Add(*c.lease)
+	item.expiration = &t
 }
 
 // IsExpired returns boolean value whether this item is expired or not.

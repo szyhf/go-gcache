@@ -130,6 +130,7 @@ func (c *LRUCache[K, V]) getValue(key K, onLoad bool) (V, error) {
 		if !it.IsExpired(nil) {
 			c.evictList.MoveToFront(item)
 			v := it.value
+			c.autoLease(it)
 			c.mu.Unlock()
 			if !onLoad {
 				c.stats.IncrHitCount()
@@ -296,6 +297,17 @@ func (c *LRUCache[K, V]) Purge() {
 	}
 
 	c.init()
+}
+
+func (c *LRUCache[K, V]) autoLease(item *lruItem[K, V]) {
+	if item.expiration == nil {
+		return
+	}
+	if c.lease == nil {
+		return
+	}
+	t := item.clock.Now().Add(*c.lease)
+	item.expiration = &t
 }
 
 type lruItem[K comparable, V any] struct {

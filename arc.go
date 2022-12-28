@@ -205,6 +205,7 @@ func (c *ARC[K, V]) getValue(key K, onLoad bool) (V, error) {
 			if !onLoad {
 				c.stats.IncrHitCount()
 			}
+			c.autoLease(item)
 			return item.value, nil
 		} else {
 			delete(c.items, key)
@@ -221,6 +222,7 @@ func (c *ARC[K, V]) getValue(key K, onLoad bool) (V, error) {
 			if !onLoad {
 				c.stats.IncrHitCount()
 			}
+			c.autoLease(item)
 			return item.value, nil
 		} else {
 			delete(c.items, key)
@@ -381,6 +383,17 @@ func (c *ARC[K, V]) setPart(p int) {
 
 func (c *ARC[K, V]) isCacheFull() bool {
 	return (c.t1.Len() + c.t2.Len()) == c.size
+}
+
+func (c *ARC[K, V]) autoLease(item *arcItem[K, V]) {
+	if item.expiration == nil {
+		return
+	}
+	if c.lease == nil {
+		return
+	}
+	t := item.clock.Now().Add(*c.lease)
+	item.expiration = &t
 }
 
 // IsExpired returns boolean value whether this item is expired or not.

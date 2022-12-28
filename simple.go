@@ -125,6 +125,7 @@ func (c *SimpleCache[K, V]) getValue(key K, onLoad bool) (V, error) {
 	if ok {
 		if !item.IsExpired(nil) {
 			v := item.value
+			c.autoLease(item)
 			c.mu.Unlock()
 			if !onLoad {
 				c.stats.IncrHitCount()
@@ -286,6 +287,17 @@ func (c *SimpleCache[K, V]) Purge() {
 	}
 
 	c.init()
+}
+
+func (c *SimpleCache[K, V]) autoLease(item *simpleItem[V]) {
+	if item.expiration == nil {
+		return
+	}
+	if c.lease == nil {
+		return
+	}
+	t := item.clock.Now().Add(*c.lease)
+	item.expiration = &t
 }
 
 type simpleItem[V any] struct {

@@ -58,6 +58,7 @@ type baseCache[K comparable, V any] struct {
 	serializeFunc    func(k K, v V) (V, error)
 	deserializeFunc  func(k K, v V) (V, error)
 	expiration       *time.Duration
+	lease            *time.Duration
 	mu               sync.RWMutex
 	loadGroup        Group[K, V]
 	*stats
@@ -77,6 +78,7 @@ type CacheBuilder[K comparable, V any] struct {
 	serializeFunc    func(k K, v V) (V, error)
 	deserializeFunc  func(k K, v V) (V, error)
 	expiration       *time.Duration
+	lease            *time.Duration
 }
 
 func New[K comparable, V any](size int) *CacheBuilder[K, V] {
@@ -161,6 +163,12 @@ func (cb *CacheBuilder[K, V]) Expiration(expiration time.Duration) *CacheBuilder
 	return cb
 }
 
+// Lease: 当 Item 具备 Expiration 时，每次被访问成功则自动续租一次
+func (cb *CacheBuilder[K, V]) Lease(lease time.Duration) *CacheBuilder[K, V] {
+	cb.lease = &lease
+	return cb
+}
+
 func (cb *CacheBuilder[K, V]) Build() Cache[K, V] {
 	if cb.size <= 0 && cb.tp != TYPE_SIMPLE {
 		panic("gcache: Cache size <= 0")
@@ -189,6 +197,7 @@ func buildCache[K comparable, V any](c *baseCache[K, V], cb *CacheBuilder[K, V])
 	c.size = cb.size
 	c.loaderExpireFunc = cb.loaderExpireFunc
 	c.expiration = cb.expiration
+	c.lease = cb.lease
 	c.addedFunc = cb.addedFunc
 	c.deserializeFunc = cb.deserializeFunc
 	c.serializeFunc = cb.serializeFunc
