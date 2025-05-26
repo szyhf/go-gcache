@@ -279,3 +279,17 @@ func TestExpiredItems(t *testing.T) {
 		})
 	}
 }
+
+func TestExpire(t *testing.T) {
+	i := 0
+	cache := New[int, int](0).LoaderExpireFunc(func(k int) (int, *time.Duration, error) {
+		i++
+		duration := time.Second
+		return i, &duration, nil
+	}).Build()
+	t.Log(cache.Get(1))
+	t.Log(cache.Get(1))
+	t.Log(cache.Get(1))
+	time.Sleep(time.Second)
+	t.Log(cache.Get(1))
+}
